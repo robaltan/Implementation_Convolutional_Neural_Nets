@@ -89,3 +89,44 @@ class Conv2d(nn.Module):
           out = out.view(batch_size, self.out_channels, output_height, output_width)
 
         return out
+
+
+class MaxPool2d(nn.Module):
+    def __init__(self, kernel_size):
+        super(MaxPool2d, self).__init__()
+        """
+        An implementation of a max-pooling layer.
+
+        Parameters:
+        - kernel_size: the size of the window to take a max over
+        """
+        self.kernel_size = kernel_size 
+
+        # Given there is no stride size given, let's assume that stride 
+        # is the same as one of the dimensions of the kernel
+        self.stride = self.kernel_size
+
+    def forward(self, x):
+        """
+        Input:
+        - x: Input data of shape (N, C, H, W)
+        Output:
+        - out: Output data, of shape (N, F, H', W').
+        """
+        # Retrieve the batch size, number of input channels, height and width of each channel
+        batch_size, number_of_input_channels, height, width = x.size()[0], x.size()[1], x.size()[2], x.size()[3]
+
+        # Retrieve kernel height and width
+        kernel_height, kernel_width = self.kernel_size, self.kernel_size
+
+        # Perform assertion that height is divisible by kernel height and same
+        # for width
+        assert height % kernel_height == 0
+        assert width % kernel_width == 0
+        
+        # Reshape x so that max could be found by two dimensions
+        x = x.reshape((batch_size, number_of_input_channels, 
+                      height // kernel_height, kernel_height, width // kernel_width, kernel_width)) 
+        # Perform max operation on two dimensions 
+        out = torch.amax(x, dim=(3, 5))
+        return out
