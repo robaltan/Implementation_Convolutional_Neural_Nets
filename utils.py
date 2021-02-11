@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-torch.manual_seed(0)
 import math
 
 class Conv2d(nn.Module):
@@ -129,4 +128,71 @@ class MaxPool2d(nn.Module):
                       height // kernel_height, kernel_height, width // kernel_width, kernel_width)) 
         # Perform max operation on two dimensions 
         out = torch.amax(x, dim=(3, 5))
+        return out
+
+class Linear(nn.Module):
+    def __init__(self, in_channels, out_channels, bias=True):
+        super(Linear, self).__init__()
+        """
+        An implementation of a Linear layer.
+
+        Parameters:
+        - weight: the learnable weights of the module of shape (in_channels, out_channels).
+        - bias: the learnable bias of the module of shape (out_channels).
+        """
+        # Assign the number of input and output channels to variables
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        # Assign user defined by bias enabled to a variable
+        self.bias_enabled = bias
+
+        # Initialize an empty tensor with the size (C, F)
+        self.weights = torch.empty((out_channels, in_channels))
+
+        # Use Kaiman Initialization for the weights and the bias
+        # Followed how PyTorch implemented it
+        # See https://github.com/pytorch/pytorch/blob/316f0b89c3aa51329f40a13c00de587da60faa66/torch/nn/init.py#L67
+        fan = self.weights.size(1) * self.weights[0][0].numel()
+        gain = math.sqrt(2.0) # gain for the 'relu' function
+        std = gain / math.sqrt(fan)
+        bound = math.sqrt(3.0) * std
+        with torch.no_grad():
+          self.weights.uniform_(-bound, bound)
+
+        if self.bias_enabled:
+           # Initialize an empty tensor with the size (F, )
+          self.bias = torch.empty((out_channels, ))
+          bound = 1 / math.sqrt(fan) # no gain needed
+          self.bias.uniform_(-bound, bound)
+
+        # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        ########################################################################
+        #                             END OF YOUR CODE                         #
+        ########################################################################
+
+    def forward(self, x):
+        """
+        Input:
+        - x: Input data of shape (N, *, H) where * means any number of additional
+        dimensions and H = in_channels
+        Output:
+        - out: Output data of shape (N, *, H') where * means any number of additional
+        dimensions and H' = out_channels
+        """
+        # Make sure that the height of the input channel is equivalent to
+        # the number of input channels 
+        assert x.size()[-1] == self.in_channels
+        
+        # Apply the forward pass
+        out = torch.matmul(x, self.weights.T)
+        if self.bias_enabled:
+          # Add bias if user enabled bias
+          out = out + self.bias
+        
+
+        # Make sure that the height of the output channel is equivalent to
+        # the number of output channels
+        assert out.size()[-1] == self.out_channels
+
         return out
