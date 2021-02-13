@@ -196,3 +196,80 @@ class Linear(nn.Module):
         assert out.size()[-1] == self.out_channels
 
         return out
+
+
+class BatchNorm2d(nn.Module):
+    def __init__(self, num_features, eps=1e-05, momentum=0.1):
+        super(BatchNorm2d, self).__init__()
+        """
+        An implementation of a Batch Normalization over a mini-batch of 2D inputs.
+
+        The mean and standard-deviation are calculated per-dimension over the
+        mini-batches and gamma and beta are learnable parameter vectors of
+        size num_features.
+
+        Parameters:
+        - num_features: C from an expected input of size (N, C, H, W).
+        - eps: a value added to the denominator for numerical stability. Default: 1e-5
+        - momentum: momentum – the value used for the running_mean and running_var
+        computation. Default: 0.1
+        - gamma: the learnable weights of shape (num_features).
+        - beta: the learnable bias of the module of shape (num_features).
+        """
+        # Assign parameters to be used for BatchNorm2d
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+
+        # Set the learnable weights for gamma and beta, will not be needed
+        # for learning
+        self.gamma = torch.ones((1, self.num_features, 1, 1))
+        self.beta = torch.zeros((1, self.num_features, 1, 1))
+        
+        assert self.gamma.size() == self.beta.size()
+
+        # Initialize t to be used in the training phase
+        self.t = 0
+
+        # Initialize mu and variance
+        self.mu = torch.zeros((1, self.num_features))
+        self.sigma = torch.ones((1, self.num_features))
+
+        # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        ########################################################################
+        #                             END OF YOUR CODE                         #
+        ########################################################################
+
+    def forward(self, x):
+        """
+        During training this layer keeps running estimates of its computed mean and
+        variance, which are then used for normalization during evaluation.
+        Input:
+        - x: Input data of shape (N, C, H, W)
+        Output:
+        - out: Output data of shape (N, C, H, W) (same shape as input)
+        """
+
+        # Define the batch size
+        self.batch_size = x.size()[0]
+
+        # Differentiate between training
+        if self.training:
+          # Calculate batch mu
+          mu = torch.mean(x, dim=[0,2,3])
+          # Calculate batch sigma
+          sigma = torch.var(x, dim=[0,2,3], unbiased=False)
+
+          with torch.no_grad():
+            # Calculate running mu and sigma
+            self.mu = self.momentum * mu + (1 - self.momentum) * self.mu
+            self.sigma = self.momentum * sigma + (1 - self.momentum) * self.sigma
+          
+          # Calculate the normalization for the batch
+          x_hat = (x - mu[None, :, None, None]) / (torch.sqrt(sigma[None, :, None, None] + self.eps))
+        else:
+          x_hat = (x - self.mu[None, :, None, None]) / (torch.sqrt(self.sigma[None, :, None, None] + self.eps))
+
+        x = self.gamma * x_hat + self.beta
+        
+        return x
